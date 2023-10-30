@@ -3,12 +3,13 @@ import re
 import unicodedata
 import streamlit as st
 
-
+##################################################################
+######################ALL FUNCTIONS################################
+##################################################################
 
 def unicode_to_ascii(s):
     return ''.join(c for c in unicodedata.normalize('NFD', s)
       if unicodedata.category(c) != 'Mn')
-
 
 def preprocess_sentence(w):
     w = unicode_to_ascii(w.lower().strip())
@@ -22,7 +23,6 @@ def preprocess_sentence(w):
     w = '<start> ' + w + ' <end>'
     return w
 
-
 def tokenize(lang):
     lang_tokenizer = tf.keras.preprocessing.text.Tokenizer(
       filters='')
@@ -32,10 +32,7 @@ def tokenize(lang):
 
     tensor = tf.keras.preprocessing.sequence.pad_sequences(tensor,
                                                          padding='post')
-
     return tensor, lang_tokenizer
-
-
 
 def load_dataset(data, num_examples=None):
     # creating cleaned input, output pairs
@@ -49,10 +46,6 @@ def load_dataset(data, num_examples=None):
 
     return input_tensor, target_tensor, inp_lang_tokenizer, targ_lang_tokenizer
 
-
-
-
-
 def remove_tags(sentence):  
     return sentence.split("<start>")[-1].split("<end>")[0]
 
@@ -63,16 +56,15 @@ def load_tokenizer(filename):
         tokenizer = pickle.load(handle)
     return tokenizer
 
-input_tokenizer = load_tokenizer('input_tokenizer.pkl')
-target_tokenizer = load_tokenizer('target_tokenizer.pkl')
+def load_model_safely(model_path):
+    try:
+        loaded_model = tf.keras.models.load_model(model_path)
+        print("Model loaded successfully.")
+        return loaded_model
+    except Exception as e:
+        raise ValueError("Error loading the model: " + str(e))
 
-
-
-decoder = tf.keras.models.load_model("decoder_lstm")
-encoder = tf.keras.models.load_model("encoder_lstm")
-
-
-def evaluate(sentence, decoder, encoder, inp_lang, targ_lang, max_length_inp=40, max_length_targ=40, units=1500):
+def evaluate(sentence, decoder, encoder, inp_lang, targ_lang, max_length_inp=24, max_length_targ=24, units=1500):
     sentence = preprocess_sentence(sentence)
 
     inputs = [inp_lang.word_index[i] for i in sentence.split(' ')]
@@ -113,6 +105,20 @@ def ask(sentence):
     st.write('Question: %s' % (sentence))
     st.write('Predicted answer: {}'.format(result))
 
+@st.cache(allow_output_mutation=True)
+def load_models():
+    input_tokenizer = load_tokenizer('input_tokenizer.pkl')
+    target_tokenizer = load_tokenizer('target_tokenizer.pkl')
+    decoder = load_model_safely("decoder_final")
+    encoder = load_model_safely("encoder_final")
+    return input_tokenizer, target_tokenizer, decoder, encoder
+
+##################################################################
+######################Set up the Models##############################
+##################################################################
+
+input_tokenizer, target_tokenizer, decoder, encoder = load_models()
+
 st.markdown(
     """
     <style>
@@ -143,44 +149,46 @@ def display_conversation(conversation):
     for speaker, message in conversation:
         class_name = "you" if speaker == "You" else "chatbot"
         st.markdown(f'<div class="chat-message {class_name}">{message}</div>', unsafe_allow_html=True)
+
+
 def main():
-    st.title("Slayerr's Bear")
+    st.title("CS 425 Conversational Bot Project")
     
     if 'conversation' not in st.session_state:
         st.session_state.conversation = []
     
     conversation = st.session_state.conversation
     
-    # Display previous conversation
-    display_conversation(conversation)
-    
     st.markdown("---")
     
     # Create a form for user input
-    user_input_form = st.form(key="user_input_form")
-    user_input = user_input_form.text_input("You:")
+    user_input_form = st.form(key="user_input_form", clear_on_submit = True)
+
+    # Use a unique key for the input field within the form
+    user_input = user_input_form.text_input("You:", key="user_input_unique", value= "")
+
     send_button = user_input_form.form_submit_button("Send")
     
     if send_button and user_input.strip() != "":
-        conversation.append(("You", user_input))
+
+
+        user_message = ("You", user_input)
         
         # Get chatbot's response
         result, _ = evaluate(user_input, decoder,encoder, input_tokenizer, target_tokenizer)
-        conversation.append(("Chatbot", result))
+        bot_message = ("Chatbot", result)
         
         # Save conversation history in session state
-        st.session_state.conversation = conversation
-        
-        # Clear the input field after sending
+        conversation.extend([user_message, bot_message])
+
         user_input = ""
+
+        # Display previous conversation
+        display_conversation(conversation)
         
-        # Trigger app rerun to update the conversation
-        st.experimental_rerun()
 
     if st.button("Reset Conversation"):
         st.session_state.conversation = []  # Reset conversation history
-        st.experimental_rerun()  # Trigger app rerun to clear conversation
-
 
 if __name__ == "__main__":
     main()

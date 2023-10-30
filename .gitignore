@@ -1,2 +1,5 @@
 /decoder_lstm/
 /encoder_lstm/
+
+encoder_final/
+decoder_final/
