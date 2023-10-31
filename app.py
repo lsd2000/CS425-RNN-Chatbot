@@ -105,7 +105,7 @@ def ask(sentence):
     st.write('Question: %s' % (sentence))
     st.write('Predicted answer: {}'.format(result))
 
-@st.cache(allow_output_mutation=True)
+# @st.cache(allow_output_mutation=True)
 def load_models():
     input_tokenizer = load_tokenizer('input_tokenizer.pkl')
     target_tokenizer = load_tokenizer('target_tokenizer.pkl')
@@ -145,13 +145,15 @@ st.markdown(
 )
 
 # Streamlit UI code
-def display_conversation(conversation):
-    for speaker, message in conversation:
-        class_name = "you" if speaker == "You" else "chatbot"
-        st.markdown(f'<div class="chat-message {class_name}">{message}</div>', unsafe_allow_html=True)
+def display_conversation(conversation, chat_placeholder):
+    with chat_placeholder.container(): 
+        for speaker, message in conversation:
+            class_name = "you" if speaker == "You" else "chatbot"
+            st.markdown(f'<div class="chat-message {class_name}">{message}</div>', unsafe_allow_html=True)
 
 
 def main():
+    
     st.title("CS 425 Conversational Bot Project")
     
     if 'conversation' not in st.session_state:
@@ -160,7 +162,7 @@ def main():
     conversation = st.session_state.conversation
     
     st.markdown("---")
-    
+    chat_placeholder = st.empty()
     # Create a form for user input
     user_input_form = st.form(key="user_input_form", clear_on_submit = True)
 
@@ -184,7 +186,7 @@ def main():
         user_input = ""
 
         # Display previous conversation
-        display_conversation(conversation)
+        display_conversation(conversation, chat_placeholder)
         
 
     if st.button("Reset Conversation"):
